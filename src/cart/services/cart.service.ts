@@ -1,8 +1,18 @@
 import { Injectable } from '@nestjs/common';
-
+import { Client } from 'pg';
 import { v4 } from 'uuid';
 
 import { Cart } from '../models';
+const { PG_HOST, PG_PORT, PG_DATABASE, PG_USERNAME, PG_PASSWORD } = process.env;
+
+const dbOptions = {
+  host: PG_HOST,
+  port: Number(PG_PORT),
+  database: PG_DATABASE,
+  user: PG_USERNAME,
+  password: PG_PASSWORD,
+  connectionTimeoutMillis: 5000,
+};
 
 @Injectable()
 export class CartService {
@@ -32,6 +42,25 @@ export class CartService {
     }
 
     return this.createByUserId(userId);
+  }
+
+  async getCart(cartId: string): Promise<Cart> {
+    const client = new Client(dbOptions)
+    try {
+      await client.connect()
+
+      const { rows: [cart] } = await client.query(`select * from carts where id = '${cartId}'`);
+      const { rows: items } = await client.query(`select * from cart_items where cart_id = '${cartId}'`);
+
+      return {
+        ...cart,
+        items,
+      }
+    } catch (err) {
+      console.log(err)
+    } finally {
+      await client.end()
+    }
   }
 
   updateByUserId(userId: string, { items }: Cart): Cart {
